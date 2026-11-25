@@ -3,8 +3,8 @@ require __DIR__ . '/includes/helpers.php';
 $p = require __DIR__ . '/data/profile.php';
 $name = $p['first_name'] . ' ' . $p['last_name'];
 
-// Limit how long one visitor can view the page. The start time is kept on the
-// server, so refreshing does not restart the clock.
+// Limit how long one visitor can view the page. The start time is kept in a
+// cookie, so refreshing does not restart the clock.
 $limit = (int) $p['view_seconds'];
 $remaining = $limit > 0 ? view_time_left($limit) : 0;
 $expired = $limit > 0 && $remaining <= 0;

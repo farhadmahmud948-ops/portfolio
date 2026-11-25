@@ -25,20 +25,30 @@ function asset($path)
     return attr($path) . (is_file($file) ? '?v=' . filemtime($file) : '');
 }
 
-/** Milliseconds this visitor has left to view the page. Call before any output. */
+/**
+ * Milliseconds this visitor has left to view the page. Call before any output.
+ *
+ * The start time is in a cookie, not a PHP session, because hosts like Vercel
+ * run several copies of the site that do not share session files.
+ */
 function view_time_left($seconds)
 {
-    session_start([
-        'use_strict_mode' => 1,
-        'cookie_httponly' => 1,
-        'cookie_samesite' => 'Lax',
-        'cache_limiter' => 'nocache',
-    ]);
-    if (!isset($_SESSION['view_started'])) {
-        $_SESSION['view_started'] = microtime(true);
-    }
-    $used = microtime(true) - $_SESSION['view_started'];
-    session_write_close();
+    $now = (int) round(microtime(true) * 1000);
+    $cookie = isset($_COOKIE['view_started']) ? (string) $_COOKIE['view_started'] : '';
+    $started = preg_match('/^\d{13}$/', $cookie) ? (int) $cookie : 0;
 
-    return max(0, (int) round(($seconds - $used) * 1000));
+    // First visit, or a start time that makes no sense.
+    if ($started === 0 || $started > $now + 5000) {
+        $started = $now;
+        $proto = isset($_SERVER['HTTP_X_FORWARDED_PROTO']) ? $_SERVER['HTTP_X_FORWARDED_PROTO'] : '';
+        setcookie('view_started', (string) $started, [
+            'path' => '/',
+            'secure' => $proto === 'https' || !empty($_SERVER['HTTPS']),
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
+    }
+    header('Cache-Control: no-store');
+
+    return max(0, $seconds * 1000 - max(0, $now - $started));
 }
